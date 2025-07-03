@@ -139,6 +139,7 @@ if torch.cuda.is_available():
         print(f'  GPU {i}: {torch.cuda.get_device_name(i)}')
 
 # Test model loading
+import os
 try:
     if os.path.exists('working_model.txt'):
         with open('working_model.txt', 'r') as f:
