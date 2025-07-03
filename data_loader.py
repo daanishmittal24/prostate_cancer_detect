@@ -79,23 +79,11 @@ def get_dataloaders(config):
         stratify=df['isup_grade']
     )
     
-    # For distributed training, we need to handle the dataset splitting differently
-    if config.distributed:
-        # In distributed mode, we'll use DistributedSampler
-        from torch.utils.data.distributed import DistributedSampler
-        train_sampler = DistributedSampler(train_df, shuffle=True)
-        val_sampler = DistributedSampler(val_df, shuffle=False)
-        shuffle = False  # Shuffling is handled by the sampler
-    else:
-        train_sampler = None
-        val_sampler = None
-        shuffle = True
-    
     # Define transforms
     train_transforms = get_transforms(config.img_size, is_train=True)
     val_transforms = get_transforms(config.img_size, is_train=False)
     
-    # Create datasets
+    # Create datasets first
     train_dataset = ProstateDataset(
         train_df,
         os.path.join(config.data_dir, config.image_dir),
@@ -109,6 +97,18 @@ def get_dataloaders(config):
         os.path.join(config.data_dir, config.mask_dir) if config.mask_dir else None,
         transform=val_transforms
     )
+    
+    # For distributed training, we need to handle the dataset splitting differently
+    if config.distributed:
+        # In distributed mode, we'll use DistributedSampler
+        from torch.utils.data.distributed import DistributedSampler
+        train_sampler = DistributedSampler(train_dataset, shuffle=True)
+        val_sampler = DistributedSampler(val_dataset, shuffle=False)
+        shuffle = False  # Shuffling is handled by the sampler
+    else:
+        train_sampler = None
+        val_sampler = None
+        shuffle = True
     
     # Create dataloaders
     train_loader = DataLoader(
