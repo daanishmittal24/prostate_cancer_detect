@@ -103,7 +103,7 @@ def init_distributed_mode(config, args):
         return
     
     if args.gpu >= torch.cuda.device_count():
-        print(f'GPU {args.gpu} not available, only {torch.cuda.device_count()} GPUs found')
+        print('GPU {} not available, only {} GPUs found'.format(args.gpu, torch.cuda.device_count()))
         config.distributed = False
         return
 
@@ -117,7 +117,7 @@ def init_distributed_mode(config, args):
     config.dist_backend = args.dist_backend
     
     # Initialize process group with proper initialization method
-    print(f'| distributed init (rank {args.rank}, local_rank {args.local_rank})', flush=True)
+    print('| distributed init (rank {}, local_rank {})'.format(args.rank, args.local_rank), flush=True)
     torch.distributed.init_process_group(
         backend=args.dist_backend,
         init_method='env://',  # Use environment variables for initialization
@@ -164,7 +164,7 @@ def main():
     if not config.distributed or config.rank == 0:
         print('Training configuration:')
         for k, v in config.__dict__.items():
-            print(f'  {k}: {v}')
+            print('  {}: {}'.format(k, v))
     
     # Create output directory
     os.makedirs(config.output_dir, exist_ok=True)
@@ -176,7 +176,7 @@ def main():
     
     # Initialize model, criterion, optimizer
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device: {device}')
+    print('Using device: {}'.format(device))
     
     model = ViTForProstateCancer(config).to(device)
     criterion = CombinedLoss(alpha=0.7)  # Adjust alpha to balance classification and segmentation loss
@@ -187,7 +187,7 @@ def main():
     start_epoch = 0
     best_metric = float('inf')
     if args.resume:
-        print(f'Resuming from checkpoint: {args.resume}')
+        print('Resuming from checkpoint: {}'.format(args.resume))
         start_epoch, checkpoint_metrics = load_checkpoint(model, optimizer, args.resume, device)
         best_metric = checkpoint_metrics.get('loss', float('inf'))
     
@@ -213,7 +213,7 @@ def main():
     
     for epoch in epoch_pbar:
         # Update progress bar
-        epoch_pbar.set_description(f'Epoch {epoch+1}/{config.epochs}')
+        epoch_pbar.set_description('Epoch {}/{}'.format(epoch+1, config.epochs))
         
         # Train for one epoch
         train_metric = train_epoch(model, train_loader, criterion, optimizer, device, epoch, config.epochs)
@@ -236,24 +236,20 @@ def main():
         
         # Print detailed metrics
         print('\n' + '='*80)
-        print(f'Epoch {epoch+1}/{config.epochs} - Learning Rate: {optimizer.param_groups[0]["lr"]:.2e}')
+        print('Epoch {}/{} - Learning Rate: {:.2e}'.format(epoch+1, config.epochs, optimizer.param_groups[0]["lr"]))
         print('-'*80)
-        print(f'Train Loss: {train_metric["loss"]:.4f} | ' \
-              f'Cls Loss: {train_metric["cls_loss"]:.4f} | ' \
-              f'Seg Loss: {train_metric["seg_loss"]:.4f} | ' \
-              f'Acc: {train_metric["accuracy"]:.4f} | ' \
-              f'F1: {train_metric["f1"]:.4f}')
-        print(f'Val Loss: {val_metric["loss"]:.4f} | ' \
-              f'Cls Loss: {val_metric["cls_loss"]:.4f} | ' \
-              f'Seg Loss: {val_metric["seg_loss"]:.4f} | ' \
-              f'Acc: {val_metric["accuracy"]:.4f} | ' \
-              f'F1: {val_metric["f1"]:.4f}')
+        print('Train Loss: {:.4f} | Cls Loss: {:.4f} | Seg Loss: {:.4f} | Acc: {:.4f} | F1: {:.4f}'.format(
+            train_metric["loss"], train_metric["cls_loss"], train_metric["seg_loss"], 
+            train_metric["accuracy"], train_metric["f1"]))
+        print('Val Loss: {:.4f} | Cls Loss: {:.4f} | Seg Loss: {:.4f} | Acc: {:.4f} | F1: {:.4f}'.format(
+            val_metric["loss"], val_metric["cls_loss"], val_metric["seg_loss"], 
+            val_metric["accuracy"], val_metric["f1"]))
         print('='*80 + '\n')
         
         # Only save checkpoints on master process
         if not config.distributed or config.rank == 0:
             # Save checkpoint after each epoch with epoch number
-            epoch_filename = f'model_epoch_{epoch+1:03d}.pth'
+            epoch_filename = 'model_epoch_{:03d}.pth'.format(epoch+1)
             epoch_path = os.path.join(checkpoint_dir, epoch_filename)
             save_checkpoint(
                 model.module if hasattr(model, 'module') else model, 
@@ -286,7 +282,7 @@ def main():
                     }, 
                     best_model_path
                 )
-                print(f'\n🔥 New best model saved! Val Loss: {best_metric:.4f} at Epoch {epoch+1}\n')
+                print('\n🔥 New best model saved! Val Loss: {:.4f} at Epoch {}\n'.format(best_metric, epoch+1))
         
         # Only save metrics and plots on master process
         if not config.distributed or config.rank == 0:
@@ -304,7 +300,7 @@ def main():
             plot_training_metrics(train_metrics, val_metrics, config.output_dir)
             
             # Save a copy of the current metrics plot
-            metrics_plot_path = os.path.join(config.output_dir, f'metrics_epoch_{epoch+1:03d}.png')
+            metrics_plot_path = os.path.join(config.output_dir, 'metrics_epoch_{:03d}.png'.format(epoch+1))
             plt.savefig(metrics_plot_path)
             plt.close()
         
@@ -313,7 +309,7 @@ def main():
             avg_time_per_epoch = (time.time() - start_time) / (epoch + 1 - start_epoch)
             remaining_epochs = config.epochs - (epoch + 1)
             remaining_time = avg_time_per_epoch * remaining_epochs
-            print(f'\n⏳ Estimated time remaining: {remaining_time/60:.1f} minutes\n')
+            print('\n⏳ Estimated time remaining: {:.1f} minutes\n'.format(remaining_time/60))
     
     print('Training complete!')
 
