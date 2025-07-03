@@ -7,8 +7,41 @@ class ViTForProstateCancer(nn.Module):
         super().__init__()
         self.config = config
         
-        # Load pre-trained ViT
-        self.vit = ViTModel.from_pretrained(config.model_name)
+        # Load pre-trained ViT with error handling
+        try:
+            print(f"Loading ViT model: {config.model_name}")
+            self.vit = ViTModel.from_pretrained(config.model_name)
+            print("✅ Model loaded successfully")
+        except Exception as e:
+            print(f"❌ Failed to load {config.model_name}: {e}")
+            print("🔄 Trying alternative model...")
+            try:
+                # Fallback to a different model
+                fallback_model = "google/vit-base-patch16-224"
+                print(f"Trying fallback model: {fallback_model}")
+                self.vit = ViTModel.from_pretrained(fallback_model)
+                print("✅ Fallback model loaded successfully")
+            except Exception as e2:
+                print(f"❌ Fallback also failed: {e2}")
+                print("🔄 Creating model from config...")
+                # Last resort: create from config
+                vit_config = ViTConfig(
+                    image_size=config.img_size,
+                    patch_size=16,
+                    num_channels=3,
+                    hidden_size=768,
+                    num_hidden_layers=12,
+                    num_attention_heads=12,
+                    intermediate_size=3072,
+                    hidden_act="gelu",
+                    hidden_dropout_prob=0.0,
+                    attention_probs_dropout_prob=0.0,
+                    initializer_range=0.02,
+                    layer_norm_eps=1e-12,
+                    num_labels=config.num_classes
+                )
+                self.vit = ViTModel(vit_config)
+                print("✅ Model created from scratch")
         
         # Freeze the base model if needed
         # for param in self.vit.parameters():

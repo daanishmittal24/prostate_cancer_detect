@@ -12,7 +12,7 @@ class Config:
     mask_dir: str = "train_label_masks"
     
     # Model
-    model_name: str = "google/vit-base-patch16-224-in21k"
+    model_name: str = "google/vit-base-patch16-224"  # More stable than in21k version
     img_size: int = 224
     num_classes: int = 6  # ISUP grades 0-5
     
@@ -47,3 +47,10 @@ class Config:
     def __post_init__(self):
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
+        
+        # Check if we have a working model file
+        if os.path.exists('working_model.txt'):
+            with open('working_model.txt', 'r') as f:
+                working_model = f.read().strip()
+                print(f"Using pre-downloaded model: {working_model}")
+                self.model_name = working_model

@@ -4,7 +4,7 @@
 set -e
 
 # Configuration
-NUM_GPUS=4  # Set to the number of GPUs you want to use (0 to use all available)
+NUM_GPUS=0  # Set to 0 to auto-detect, or specify number (you only have 1 GPU)
 PORT=29500  # Base port (will be incremented for each process)
 DATA_DIR="/home/Saif/Pratham/ELC/prostate-cancer-grade-assessment"  # Update this path
 OUTPUT_DIR="./outputs_$(date +%Y%m%d_%H%M%S)"
@@ -38,20 +38,33 @@ LOG_FILE="$OUTPUT_DIR/training_$(date +%Y%m%d_%H%M%S).log"
 
 # Function to run training
 run_training() {
-    # The actual training command - Updated to use torchrun instead of torch.distributed.launch
-    CMD="torchrun \
-        --standalone \
-        --nproc_per_node=$NUM_GPUS \
-        --nnodes=1 \
-        train.py \
-        --data-dir \"$DATA_DIR\" \
-        --output-dir \"$OUTPUT_DIR\" \
-        --model-save-path \"$OUTPUT_DIR/best_model.pth\" \
-        --batch-size $BATCH_SIZE \
-        --epochs $EPOCHS \
-        --lr $LEARNING_RATE \
-        --distributed \
-        --dist-backend nccl"
+    if [ "$NUM_GPUS" -le 1 ]; then
+        echo "Running single GPU training (no distributed training needed)..."
+        # Single GPU - no distributed training
+        CMD="python train.py \
+            --data-dir \"$DATA_DIR\" \
+            --output-dir \"$OUTPUT_DIR\" \
+            --model-save-path \"$OUTPUT_DIR/best_model.pth\" \
+            --batch-size $BATCH_SIZE \
+            --epochs $EPOCHS \
+            --lr $LEARNING_RATE"
+    else
+        echo "Running distributed training with $NUM_GPUS GPUs..."
+        # Multi-GPU distributed training
+        CMD="torchrun \
+            --standalone \
+            --nproc_per_node=$NUM_GPUS \
+            --nnodes=1 \
+            train.py \
+            --data-dir \"$DATA_DIR\" \
+            --output-dir \"$OUTPUT_DIR\" \
+            --model-save-path \"$OUTPUT_DIR/best_model.pth\" \
+            --batch-size $BATCH_SIZE \
+            --epochs $EPOCHS \
+            --lr $LEARNING_RATE \
+            --distributed \
+            --dist-backend nccl"
+    fi
     
     echo "Starting training with command:"
     echo "$CMD"
