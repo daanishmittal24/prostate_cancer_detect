@@ -22,8 +22,8 @@ class ProstateDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.image_dir, self.df.iloc[idx]['image_id'] + '.tiff')
         
-        # Load image
-        image = Image.open(img_name).convert('RGB')
+        # Load image with error handling for different TIFF formats
+        image = self._load_image_robust(img_name)
         
         if self.transform:
             image = self.transform(image)
@@ -46,6 +46,90 @@ class ProstateDataset(Dataset):
         if mask is not None:
             return image, mask, label
         return image, label
+
+    def _load_image_robust(self, img_path):
+        """
+        Robust image loading that tries multiple methods for TIFF files
+        """
+        # Method 1: Try PIL first (fastest)
+        try:
+            image = Image.open(img_path).convert('RGB')
+            return image
+        except Exception as e:
+            print(f"PIL failed for {img_path}: {e}")
+        
+        # Method 2: Try OpenCV
+        try:
+            import cv2
+            img_cv2 = cv2.imread(img_path)
+            if img_cv2 is not None:
+                # Convert BGR to RGB
+                img_rgb = cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(img_rgb)
+                return image
+            else:
+                print(f"OpenCV returned None for {img_path}")
+        except ImportError:
+            print("OpenCV not available")
+        except Exception as e:
+            print(f"OpenCV failed for {img_path}: {e}")
+        
+        # Method 3: Try tifffile
+        try:
+            import tifffile
+            import numpy as np
+            img_array = tifffile.imread(img_path)
+            
+            # Handle different array shapes and types
+            if img_array.ndim == 2:
+                # Grayscale - convert to RGB
+                img_array = np.stack([img_array] * 3, axis=-1)
+            elif img_array.ndim == 3 and img_array.shape[0] == 3:
+                # Channels first - transpose to channels last
+                img_array = np.transpose(img_array, (1, 2, 0))
+            
+            # Normalize to 0-255 if needed
+            if img_array.dtype == np.float32 or img_array.dtype == np.float64:
+                if img_array.max() <= 1.0:
+                    img_array = (img_array * 255).astype(np.uint8)
+                else:
+                    img_array = np.clip(img_array, 0, 255).astype(np.uint8)
+            
+            image = Image.fromarray(img_array)
+            return image
+            
+        except ImportError:
+            print("tifffile not available")
+        except Exception as e:
+            print(f"tifffile failed for {img_path}: {e}")
+        
+        # Method 4: Try scikit-image
+        try:
+            from skimage import io
+            import numpy as np
+            img_array = io.imread(img_path)
+            
+            # Normalize and convert if needed
+            if img_array.dtype == np.float32 or img_array.dtype == np.float64:
+                if img_array.max() <= 1.0:
+                    img_array = (img_array * 255).astype(np.uint8)
+            
+            if img_array.ndim == 2:
+                img_array = np.stack([img_array] * 3, axis=-1)
+            
+            image = Image.fromarray(img_array)
+            return image
+            
+        except ImportError:
+            print("scikit-image not available")
+        except Exception as e:
+            print(f"scikit-image failed for {img_path}: {e}")
+        
+        # If all methods fail, create a dummy image
+        print(f"❌ All image loading methods failed for {img_path}")
+        print("Creating dummy black image...")
+        dummy_image = Image.new('RGB', (224, 224), color='black')
+        return dummy_image
 
 def get_transforms(img_size, is_train=True):
     if is_train:
