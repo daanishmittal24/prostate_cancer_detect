@@ -2,6 +2,7 @@
 
 # Exit on error
 set -e
+sed -i 's|python -m torch.distributed.launch|'"$(pwd)/venv/bin/python -m torch.distributed.launch|g" run_on_server.sh
 
 # Configuration
 NUM_GPUS=4  # Set to the number of GPUs you want to use (0 to use all available)
