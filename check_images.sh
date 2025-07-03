@@ -54,7 +54,7 @@ good_files = []
 
 # Get first 20 files for testing
 files = os.listdir(image_dir)[:20]
-print(f'Testing {len(files)} image files...')
+print('Testing {} image files...'.format(len(files)))
 print()
 
 for i, filename in enumerate(files):
@@ -63,20 +63,20 @@ for i, filename in enumerate(files):
         # Try to open and convert to RGB
         with Image.open(filepath) as img:
             img_rgb = img.convert('RGB')
-            print(f'✅ {i+1:2d}. {filename}: {img.size} {img.mode}')
+            print('✅ {:2d}. {}: {} {}'.format(i+1, filename, img.size, img.mode))
             good_files.append(filename)
     except Exception as e:
-        print(f'❌ {i+1:2d}. {filename}: {str(e)}')
+        print('❌ {:2d}. {}: {}'.format(i+1, filename, str(e)))
         problem_files.append((filename, str(e)))
 
 print()
-print(f'Summary: {len(good_files)} good files, {len(problem_files)} problem files')
+print('Summary: {} good files, {} problem files'.format(len(good_files), len(problem_files)))
 
 if problem_files:
     print()
     print('Problem files:')
     for filename, error in problem_files:
-        print(f'  {filename}: {error}')
+        print('  {}: {}'.format(filename, error))
         
     # Check file details for problem files
     print()
@@ -85,9 +85,9 @@ if problem_files:
         filepath = os.path.join(image_dir, filename)
         if os.path.exists(filepath):
             size = os.path.getsize(filepath)
-            print(f'  {filename}: {size} bytes')
+            print('  {}: {} bytes'.format(filename, size))
         else:
-            print(f'  {filename}: file not found')
+            print('  {}: file not found'.format(filename))
 "
 
 echo
