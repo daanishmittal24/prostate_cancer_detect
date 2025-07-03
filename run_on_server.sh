@@ -2,7 +2,6 @@
 
 # Exit on error
 set -e
-sed -i 's|python -m torch.distributed.launch|'"$(pwd)/venv/bin/python -m torch.distributed.launch|g" run_on_server.sh
 
 # Configuration
 NUM_GPUS=4  # Set to the number of GPUs you want to use (0 to use all available)
@@ -39,20 +38,20 @@ LOG_FILE="$OUTPUT_DIR/training_$(date +%Y%m%d_%H%M%S).log"
 
 # Function to run training
 run_training() {
-    # The actual training command
-    CMD="python -m torch.distributed.launch \
+    # The actual training command - Updated to use torchrun instead of torch.distributed.launch
+    CMD="torchrun \
+        --standalone \
         --nproc_per_node=$NUM_GPUS \
-        --master_port=$PORT \
+        --nnodes=1 \
         train.py \
-        --data-dir "$DATA_DIR" \
-        --output-dir "$OUTPUT_DIR" \
-        --model-save-path "$OUTPUT_DIR/best_model.pth" \
+        --data-dir \"$DATA_DIR\" \
+        --output-dir \"$OUTPUT_DIR\" \
+        --model-save-path \"$OUTPUT_DIR/best_model.pth\" \
         --batch-size $BATCH_SIZE \
         --epochs $EPOCHS \
         --lr $LEARNING_RATE \
         --distributed \
-        --dist-backend nccl \
-        --dist-url 'tcp://127.0.0.1:$PORT'"
+        --dist-backend nccl"
     
     echo "Starting training with command:"
     echo "$CMD"

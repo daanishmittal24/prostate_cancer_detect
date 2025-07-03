@@ -82,10 +82,12 @@ def plot_training_metrics(train_metrics, val_metrics, output_dir):
     plt.close()
 
 def init_distributed_mode(config, args):
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    # Check if we have torchrun environment variables
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ and 'LOCAL_RANK' in os.environ:
         args.rank = int(os.environ['RANK'])
         args.world_size = int(os.environ['WORLD_SIZE'])
-        args.gpu = int(os.environ['LOCAL_RANK'])
+        args.local_rank = int(os.environ['LOCAL_RANK'])
+        args.gpu = args.local_rank
     elif 'SLURM_PROCID' in os.environ:
         args.rank = int(os.environ['SLURM_PROCID'])
         args.gpu = args.rank % torch.cuda.device_count()
@@ -94,16 +96,34 @@ def init_distributed_mode(config, args):
         config.distributed = False
         return
 
+    # Validate GPU availability
+    if not torch.cuda.is_available():
+        print('CUDA is not available, falling back to CPU')
+        config.distributed = False
+        return
+    
+    if args.gpu >= torch.cuda.device_count():
+        print(f'GPU {args.gpu} not available, only {torch.cuda.device_count()} GPUs found')
+        config.distributed = False
+        return
+
     config.distributed = True
     config.world_size = args.world_size
     config.rank = args.rank
     config.local_rank = args.local_rank
     
+    # Set device for this process
     torch.cuda.set_device(args.gpu)
     config.dist_backend = args.dist_backend
-    print(f'| distributed init (rank {args.rank}): {args.dist_url}', flush=True)
-    torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                         world_size=args.world_size, rank=args.rank)
+    
+    # Initialize process group with proper initialization method
+    print(f'| distributed init (rank {args.rank}, local_rank {args.local_rank})', flush=True)
+    torch.distributed.init_process_group(
+        backend=args.dist_backend,
+        init_method='env://',  # Use environment variables for initialization
+        world_size=args.world_size, 
+        rank=args.rank
+    )
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
 

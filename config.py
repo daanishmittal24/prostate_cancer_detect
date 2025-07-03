@@ -1,10 +1,11 @@
 import os
+import torch
 from dataclasses import dataclass
 
 @dataclass
 class Config:
     # Data
-    data_dir: str = "./data"
+    data_dir: str = "./prostate-cancer-grade-assessment"
     train_csv: str = "train.csv"
     test_csv: str = "test.csv"
     image_dir: str = "train_images"
@@ -39,6 +40,7 @@ class Config:
     distributed: bool = False
     local_rank: int = -1
     world_size: int = 1
+    rank: int = 0
     dist_backend: str = 'nccl'
     dist_url: str = 'env://'
     
