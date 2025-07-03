@@ -1,109 +1,82 @@
-"""
-Simple data loader for prostate cancer detection
-"""
 import os
-import pandas as pd
+import cv2
 import torch
+import numpy as np
+import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 from PIL import Image
-import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 
 class ProstateDataset(Dataset):
-    def __init__(self, csv_file, data_dir, image_dir, transform=None):
-        self.df = pd.read_csv(os.path.join(data_dir, csv_file))
-        self.data_dir = data_dir
+    def __init__(self, df, image_dir, mask_dir=None, transform=None, is_test=False):
+        self.df = df
         self.image_dir = image_dir
+        self.mask_dir = mask_dir
         self.transform = transform
+        self.is_test = is_test
         
     def __len__(self):
         return len(self.df)
     
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-        image_id = row['image_id']
-        label = row['isup_grade']
+        img_name = os.path.join(self.image_dir, self.df.iloc[idx]['image_id'] + '.tiff')
         
         # Load image
-        image_path = os.path.join(self.data_dir, self.image_dir, f"{image_id}.png")
-        image = Image.open(image_path).convert('RGB')
+        image = Image.open(img_name).convert('RGB')
         
         if self.transform:
             image = self.transform(image)
+        
+        if self.is_test:
+            return image, self.df.iloc[idx]['image_id']
             
-        return image, torch.tensor(label, dtype=torch.long)
+        # Load mask if available
+        mask = None
+        if self.mask_dir:
+            mask_path = os.path.join(self.mask_dir, self.df.iloc[idx]['image_id'] + '_mask.tiff')
+            if os.path.exists(mask_path):
+                mask = Image.open(mask_path).convert('L')
+                if self.transform:
+                    mask = self.transform(mask)
+            
+        # Get label (ISUP grade)
+        label = torch.tensor(self.df.iloc[idx]['isup_grade'], dtype=torch.long)
+        
+        if mask is not None:
+            return image, mask, label
+        return image, label
 
-def get_transforms():
-    train_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    val_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    return train_transform, val_transform
+def get_transforms(img_size, is_train=True):
+    if is_train:
+        return transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                              std=[0.229, 0.224, 0.225])
+        ])
+    else:
+        return transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                              std=[0.229, 0.224, 0.225])
+        ])
 
 def get_dataloaders(config):
-    """Create train and validation data loaders"""
-    # Read the full dataset
-    csv_path = os.path.join(config.data_dir, config.train_csv)
-    df = pd.read_csv(csv_path)
+    # Load data
+    df = pd.read_csv(os.path.join(config.data_dir, config.train_csv))
     
     # Split into train and validation
     train_df, val_df = train_test_split(
-        df, test_size=config.val_split, random_state=42, stratify=df['isup_grade']
-    )
-    
-    # Save split dataframes
-    train_df.to_csv(os.path.join(config.output_dir, 'train_split.csv'), index=False)
-    val_df.to_csv(os.path.join(config.output_dir, 'val_split.csv'), index=False)
-    
-    # Get transforms
-    train_transform, val_transform = get_transforms()
-    
-    # Create datasets
-    train_dataset = ProstateDataset(
-        csv_file='train_split.csv',
-        data_dir=config.output_dir,
-        image_dir=os.path.join(config.data_dir, config.image_dir),
-        transform=train_transform
-    )
-    
-    val_dataset = ProstateDataset(
-        csv_file='val_split.csv', 
-        data_dir=config.output_dir,
-        image_dir=os.path.join(config.data_dir, config.image_dir),
-        transform=val_transform
-    )
-    
-    # Create data loaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=config.batch_size,
-        shuffle=True,
-        num_workers=config.num_workers,
-        pin_memory=True
-    )
-    
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        num_workers=config.num_workers,
-        pin_memory=True
-    )
-    
-    print(f"Train samples: {len(train_dataset)}")
-    print(f"Val samples: {len(val_dataset)}")
-    
-    return train_loader, val_loader
+        df, 
+        test_size=0.2, 
+        random_state=42,
+        stratify=df['isup_grade']
     )
     
     # Define transforms

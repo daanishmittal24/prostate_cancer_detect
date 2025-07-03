@@ -1,36 +1,50 @@
-"""
-Simple configuration for prostate cancer detection training
-"""
 import os
+import torch
+from dataclasses import dataclass
 
+@dataclass
 class Config:
-    def __init__(self):
-        # Data paths
-        self.data_dir = "/home/Saif/Pratham/ELC/prostate-cancer-grade-assessment"
-        self.train_csv = "train.csv"
-        self.image_dir = "train_images"
-        
-        # Model settings
-        self.model_name = "google/vit-base-patch16-224"
-        self.num_classes = 6  # Prostate cancer grades 0-5
-        self.image_size = 224
-        
-        # Training settings
-        self.batch_size = 16
-        self.epochs = 10
-        self.learning_rate = 5e-5
-        self.weight_decay = 1e-4
-        
-        # Output settings
-        self.output_dir = "./outputs"
-        self.model_save_path = "./outputs/best_model.pth"
-        
-        # Data loader settings
-        self.num_workers = 4
-        self.train_split = 0.8
-        self.val_split = 0.2
-        
-        # Create directories
+    # Data
+    data_dir: str = "./prostate-cancer-grade-assessment"
+    train_csv: str = "train.csv"
+    test_csv: str = "test.csv"
+    image_dir: str = "train_images"
+    mask_dir: str = "train_label_masks"
+    
+    # Model
+    model_name: str = "google/vit-base-patch16-224"  # More stable than in21k version
+    img_size: int = 224
+    num_classes: int = 6  # ISUP grades 0-5
+    
+    # Training
+    batch_size: int = 16
+    epochs: int = 20
+    learning_rate: float = 5e-5
+    patience: int = 5
+    
+    # Paths
+    output_dir: str = "./outputs"
+    model_save_path: str = "./models/vit_prostate"
+    
+    # Data augmentation
+    h_flip_prob: float = 0.5
+    v_flip_prob: float = 0.5
+    rotation_range: int = 10
+    brightness_range: tuple = (0.8, 1.2)
+    
+    # Hardware
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    num_workers: int = 4
+    
+    # Distributed training
+    distributed: bool = False
+    local_rank: int = -1
+    world_size: int = 1
+    rank: int = 0
+    dist_backend: str = 'nccl'
+    dist_url: str = 'env://'
+    
+    def __post_init__(self):
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
         
