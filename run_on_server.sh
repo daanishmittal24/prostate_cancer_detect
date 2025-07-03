@@ -6,7 +6,7 @@ set -e
 # Configuration
 NUM_GPUS=4  # Set to the number of GPUs you want to use (0 to use all available)
 PORT=29500  # Base port (will be incremented for each process)
-DATA_DIR="/path/to/your/data"  # Update this path
+DATA_DIR="/home/Saif/Pratham/ELC/prostate-cancer-grade-assessment"  # Update this path
 OUTPUT_DIR="./outputs_$(date +%Y%m%d_%H%M%S)"
 
 # Create output directory
