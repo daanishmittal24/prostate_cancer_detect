@@ -57,9 +57,9 @@ echo
 
 # Training command (single GPU, no distributed)
 CMD="python train.py \
-    --data-dir \"$DATA_DIR\" \
-    --output-dir \"$OUTPUT_DIR\" \
-    --model-save-path \"$OUTPUT_DIR/best_model.pth\" \
+    --data-dir $DATA_DIR \
+    --output-dir $OUTPUT_DIR \
+    --model-save-path $OUTPUT_DIR/best_model.pth \
     --batch-size $BATCH_SIZE \
     --epochs $EPOCHS \
     --lr $LEARNING_RATE"
